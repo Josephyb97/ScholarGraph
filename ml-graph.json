@@ -1,0 +1,95 @@
+{
+  "nodes": [
+    {
+      "id": "node_0",
+      "label": "Machine Learning",
+      "category": "advanced",
+      "importance": 2
+    },
+    {
+      "id": "node_1",
+      "label": "Deep Learning",
+      "category": "advanced",
+      "importance": 2
+    },
+    {
+      "id": "node_2",
+      "label": "Neural Networks",
+      "category": "advanced",
+      "importance": 3
+    },
+    {
+      "id": "node_3",
+      "label": "CNN",
+      "category": "advanced",
+      "importance": 1
+    },
+    {
+      "id": "node_4",
+      "label": "RNN",
+      "category": "advanced",
+      "importance": 1
+    },
+    {
+      "id": "node_5",
+      "label": "json",
+      "category": "advanced",
+      "importance": 1
+    },
+    {
+      "id": "node_6",
+      "label": "ml-graph.json",
+      "category": "advanced",
+      "importance": 2
+    }
+  ],
+  "edges": [
+    {
+      "source": "node_0",
+      "target": "node_1",
+      "relation": "derived",
+      "label": "derived"
+    },
+    {
+      "source": "node_1",
+      "target": "node_2",
+      "relation": "component",
+      "label": "component"
+    },
+    {
+      "source": "node_2",
+      "target": "node_3",
+      "relation": "derived",
+      "label": "derived"
+    },
+    {
+      "source": "node_2",
+      "target": "node_4",
+      "relation": "derived",
+      "label": "derived"
+    },
+    {
+      "source": "node_5",
+      "target": "node_6",
+      "relation": "component",
+      "label": "component"
+    },
+    {
+      "source": "node_0",
+      "target": "node_6",
+      "relation": "related",
+      "label": "related"
+    }
+  ],
+  "clusters": {
+    "advanced": [
+      "node_0",
+      "node_1",
+      "node_2",
+      "node_3",
+      "node_4",
+      "node_5",
+      "node_6"
+    ]
+  }
+}
