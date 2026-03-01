@@ -8,8 +8,6 @@
 [![Bun](https://img.shields.io/badge/Bun-1.3+-orange.svg)](https://bun.sh/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-[English](#) | [中文文档](#)
-
 </div>
 
 ---
