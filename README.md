@@ -1,4 +1,4 @@
-# 📚 Literature Skills - 学术文献智能工具包
+# 📚 ScholarGraph - 学术文献智能工具包
 
 <div align="center">
 
@@ -743,6 +743,6 @@ MIT License - 详见 [LICENSE](LICENSE) 文件。
 
 **⭐ 如果这个项目对你有帮助，请给它一个 Star！⭐**
 
-Made with ❤️ by the Literature Skills Team
+Made with ❤️ by the ScholarGraph Team
 
 </div>
