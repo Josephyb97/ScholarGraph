@@ -43,6 +43,9 @@ test/outputs/*.md
 *.tmp
 *.temp
 
+# Downloads
+downloads/
+
 # Security check documents (local only)
 SECURITY_CHECK.md
 SECURITY_SUMMARY.md
