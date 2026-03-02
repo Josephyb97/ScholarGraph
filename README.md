@@ -202,7 +202,77 @@ console.log(builder.toMermaid(graph));
 
 ### 高级功能
 
-#### 7. 🔄 概念对比 (Compare Concepts)
+#### 7. 📋 综述识别 (Review Detector)
+
+自动识别综述论文，支持中英文关键词，多维度评分（标题30% + 引用25% + 摘要25% + AI 20%）。
+
+```bash
+# CLI 使用 - 搜索并识别综述
+lit review-search "attention mechanism" --limit 10
+
+# 编程 API
+import ReviewDetector from './review-detector/scripts/detect';
+
+const detector = new ReviewDetector();
+await detector.initialize();
+const result = await detector.detectReview(paper);
+console.log(`置信度: ${result.confidence}, 类型: ${result.reviewType}`);
+```
+
+#### 8. 🧠 概念提取 (Concept Extractor)
+
+从综述论文中提取核心学术概念，自动分类并识别概念间关系。
+
+```bash
+# 编程 API
+import ConceptExtractor from './concept-extractor/scripts/extract';
+
+const extractor = new ConceptExtractor();
+await extractor.initialize();
+const result = await extractor.extractFromReview(analysis);
+console.log(extractor.formatResult(result));
+```
+
+**提取能力**：
+- 15-30 个核心概念
+- 四级分类（基础/核心/进阶/应用）
+- 重要性评分（1-5）
+- 概念间关系识别
+
+#### 9. 📊 综述驱动知识图谱 (Review-to-Graph)
+
+端到端工作流：搜索综述 -> 识别 -> 确认 -> 分析 -> 提取概念 -> 构建图谱 -> 关联论文 -> 持久化。
+
+```bash
+# 从关键词搜索综述并构建图谱
+lit review-graph "deep learning" --output dl-graph --enrich
+
+# 从综述URL直接构建图谱
+lit review-graph "https://arxiv.org/abs/xxxx" --output my-graph --enrich
+
+# 自动确认模式（非交互）
+lit review-graph "transformer" --output tf-graph --enrich --auto-confirm --min-confidence 0.6
+```
+
+#### 10. 🔍 知识图谱查询
+
+双向索引查询：概念 -> 文献，文献 -> 概念。
+
+```bash
+# 按概念查找相关文献
+lit query concept "transformer" --graph dl-graph --limit 20 --type all
+
+# 按论文查找关联概念
+lit query paper "https://arxiv.org/abs/1706.03762" --graph dl-graph
+
+# 图谱管理
+lit graph-list                              # 列出所有图谱
+lit graph-stats dl-graph                    # 图谱统计信息
+lit graph-viz dl-graph --format mermaid     # 可视化
+lit graph-export dl-graph --output dl.json  # 导出
+```
+
+#### 12. 🔄 概念对比 (Compare Concepts)
 
 对比两个概念的相似点、差异点和使用场景。
 
@@ -219,7 +289,7 @@ const comparison = await learner.compare('CNN', 'RNN');
 - 🔀 差异点
 - 🎯 使用场景（何时优先使用哪个）
 
-#### 8. 📑 论文对比 (Compare Papers)
+#### 13. 📑 论文对比 (Compare Papers)
 
 对比多篇论文的共同主题、主要差异和综合分析。
 
@@ -247,7 +317,7 @@ const comparison = await analyzer.compare([url1, url2, url3]);
 - 🔀 主要差异
 - 💡 综合分析
 
-#### 9. 🔍 批判性分析 (Critique)
+#### 14. 🔍 批判性分析 (Critique)
 
 对论文进行批判性分析，识别优点、缺点、研究空白和改进建议。
 
@@ -273,7 +343,7 @@ const critique = await analyzer.critique({
 - 💡 改进建议
 - 📊 总体评价
 
-#### 10. 🗺️ 学习路径 (Learning Path)
+#### 15. 🗺️ 学习路径 (Learning Path)
 
 查找从一个概念到另一个概念的最优学习路径。
 
@@ -386,6 +456,28 @@ lit compare papers "https://arxiv.org/abs/1706.03762" "https://arxiv.org/abs/181
 lit critique "https://arxiv.org/abs/1706.03762" --focus "novelty,scalability"
 
 # 12. 查找学习路径
+# 6. 搜索综述论文
+lit review-search "attention mechanism" --limit 10
+
+# 7. 从综述构建知识图谱（含关键论文关联）
+lit review-graph "deep learning" --output dl-graph --enrich
+
+# 8. 查询概念关联文献
+lit query concept "transformer" --graph dl-graph --limit 20
+
+# 9. 查询论文关联概念
+lit query paper "https://arxiv.org/abs/1706.03762" --graph dl-graph
+
+# 10. 对比概念
+lit compare concepts CNN RNN
+
+# 11. 对比论文
+lit compare papers "https://arxiv.org/abs/1706.03762" "https://arxiv.org/abs/1810.04805"
+
+# 12. 批判性分析
+lit critique "https://arxiv.org/abs/1706.03762" --focus "novelty,scalability"
+
+# 13. 查找学习路径
 lit path "Machine Learning" "Deep Learning" --concepts "Neural Networks"
 ```
 
@@ -409,7 +501,26 @@ lit graph LLM transformer attention GPT BERT --format mermaid --output llm-graph
 lit path "Transformer" "Large Language Model" --concepts "attention,BERT,GPT"
 ```
 
-### 场景 2: 深度理解论文
+### 场景 2: 从综述快速构建领域知识体系
+
+```bash
+# 1. 搜索该领域的综述论文
+lit review-search "attention mechanism" --limit 10
+
+# 2. 从综述构建知识图谱（含关键论文关联）
+lit review-graph "attention mechanism" --output attention-graph --enrich
+
+# 3. 查看图谱统计
+lit graph-stats attention-graph
+
+# 4. 查询某个概念的相关文献
+lit query concept "self-attention" --graph attention-graph --limit 10
+
+# 5. 可视化知识图谱
+lit graph-viz attention-graph --format mermaid --output attention-graph.md
+```
+
+### 场景 3: 深度理解论文
 
 ```bash
 # 1. 分析论文
@@ -428,7 +539,7 @@ lit compare papers \
   --output transformer-vs-bert.md
 ```
 
-### 场景 3: 研究进展追踪
+### 场景 4: 研究进展追踪
 
 ```bash
 # 1. 添加监控主题
@@ -441,7 +552,7 @@ lit search "prompt engineering" --sort date --limit 10
 lit analyze "latest-paper-url" --mode quick
 ```
 
-### 场景 4: 概念对比与选择
+### 场景 5: 概念对比与选择
 
 ```bash
 # 1. 对比两个技术方案
@@ -496,6 +607,9 @@ literature-skills/
 │           ├── core-adapter.ts
 │           ├── unpaywall-adapter.ts
 │           └── google-scholar-adapter.ts
+│       ├── search.ts
+│       ├── query-expander.ts   # 查询扩展
+│       └── types.ts
 │
 ├── concept-learner/            # 概念学习
 │   ├── skill.md
@@ -521,11 +635,29 @@ literature-skills/
 │       ├── analyze.ts
 │       └── types.ts
 │
-└── knowledge-graph/            # 知识图谱
-    ├── skill.md
-    └── scripts/
-        ├── graph.ts
-        └── types.ts
+├── review-detector/            # 综述识别
+│   └── scripts/
+│       ├── detect.ts           # 多维度综述识别
+│       └── types.ts
+│
+├── concept-extractor/          # 概念提取
+│   └── scripts/
+│       ├── extract.ts          # AI概念提取与分类
+│       └── types.ts
+│
+├── knowledge-graph/            # 知识图谱
+│   ├── skill.md
+│   └── scripts/
+│       ├── graph.ts            # 图谱构建核心
+│       ├── indexer.ts          # 双向索引系统
+│       ├── storage.ts          # SQLite持久化
+│       └── enricher.ts         # 关键论文关联
+│
+├── workflows/                  # 工作流
+│   └── review-to-graph.ts      # 综述到图谱端到端流程
+│
+└── data/                       # 数据目录 (自动创建)
+    └── knowledge-graphs.db     # SQLite 数据库
 ```
 
 ---
@@ -742,6 +874,14 @@ lit <command> [options]
   compare <type> <items...>   对比分析
   critique <url>              批判性分析论文
   path <from> <to>            查找学习路径
+  review-search <query>       搜索并识别综述论文
+  review-graph <query|url>    从综述构建知识图谱
+  query concept <name>        按概念查找关联文献
+  query paper <url>           按论文查找关联概念
+  graph-stats <name>          显示图谱统计信息
+  graph-list                  列出所有图谱
+  graph-viz <name>            图谱可视化
+  graph-export <name>         导出图谱数据
   config <action>             配置管理
 
 选项:
@@ -755,6 +895,9 @@ lit <command> [options]
   --mode <m>                  分析模式 (quick|standard|deep)
   --format <f>                输出格式 (mermaid|json)
   --focus <areas>             关注领域 (逗号分隔)
+  --graph <name>              指定图谱名称 (查询命令)
+  --enrich                    搜索并关联关键论文 (review-graph)
+  --auto-confirm              自动确认综述 (review-graph)
 ```
 
 详细使用说明请参考 [ADVANCED_FEATURES.md](ADVANCED_FEATURES.md)。

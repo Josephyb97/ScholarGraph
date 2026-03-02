@@ -19,11 +19,16 @@
 
 import LiteratureSearch from './literature-search/scripts/search';
 import { PdfDownloader } from './literature-search/scripts/pdf-downloader';
+import QueryExpander from './literature-search/scripts/query-expander';
 import ConceptLearner from './concept-learner/scripts/learn';
 import KnowledgeGapDetector from './knowledge-gap-detector/scripts/detect';
 import ProgressTracker from './progress-tracker/scripts/track';
 import PaperAnalyzer from './paper-analyzer/scripts/analyze';
 import KnowledgeGraphBuilder from './knowledge-graph/scripts/graph';
+import ReviewDetector from './review-detector/scripts/detect';
+import KnowledgeGraphIndexer from './knowledge-graph/scripts/indexer';
+import GraphStorage from './knowledge-graph/scripts/storage';
+import ReviewToGraphWorkflow from './workflows/review-to-graph';
 import { ConfigManager, defaultConfig } from './config';
 import { getErrorMessage } from './shared/errors';
 import {
@@ -45,6 +50,7 @@ import type { SearchSource, SortBy, LearningDepth, AnalysisMode, ReportType } fr
 const COMMANDS = {
   search: '检索文献',
   download: '检索并下载 PDF',
+  expand: '扩展查询',
   learn: '学习概念',
   detect: '检测知识盲区',
   track: '进展追踪',
@@ -53,7 +59,14 @@ const COMMANDS = {
   config: '配置管理',
   compare: '对比分析',
   critique: '批判性分析',
-  path: '学习路径'
+  path: '学习路径',
+  'review-search': '搜索综述',
+  'review-graph': '从综述构建知识图谱',
+  query: '查询知识图谱',
+  'graph-stats': '图谱统计',
+  'graph-list': '列出图谱',
+  'graph-viz': '图谱可视化',
+  'graph-export': '导出图谱'
 };
 
 function showHelp() {
@@ -76,6 +89,10 @@ function showHelp() {
     --limit <n>               结果数量 (默认: 5)
     --source <s1,s2,...>      数据源
     --output <dir>            下载目录 (默认: ./downloads/pdfs)
+
+  expand <query>              扩展查询关键词（将模糊研究兴趣转化为具体关键词）
+    --interactive             交互式模式（多轮对话）
+    --output <file>           输出文件
 
   learn <concept>             学习概念并生成知识卡片
     --depth <d>               学习深度 (beginner|intermediate|advanced)
@@ -112,6 +129,32 @@ function showHelp() {
 
   path <from> <to>            查找学习路径
     --concepts <list>         概念列表 (逗号分隔)
+    --output <file>           输出文件
+
+  review-search <query>         搜索并识别综述论文
+    --limit <n>               搜索数量 (默认: 10)
+
+  review-graph <query|url>      从综述构建知识图谱
+    --output <name>           图谱名称 (默认: 从查询生成)
+    --enrich                  搜索并关联关键论文
+    --auto-confirm            自动确认综述 (不需交互)
+    --min-confidence <n>      最小综述置信度 (默认: 0.5)
+
+  query concept <name>          按概念查找相关文献
+    --graph <name>            图谱名称
+    --limit <n>               结果数量
+    --type <t>                论文类型 (review|research|all)
+
+  query paper <url>             按论文查找关联概念
+    --graph <name>            图谱名称
+
+  graph-stats <name>            显示图谱统计信息
+  graph-list                    列出所有已保存的图谱
+  graph-viz <name>              图谱可视化
+    --format <f>              输出格式 (mermaid|json)
+    --output <file>           输出文件
+  graph-export <name>           导出图谱数据
+    --format <f>              格式 (json)
     --output <file>           输出文件
 
   config <action>             配置管理
@@ -197,6 +240,27 @@ function showHelp() {
   # 查找学习路径
   lit path "Machine Learning" "Deep Learning" --concepts "ML,NN,DL,CNN"
 
+  # 搜索综述
+  lit review-search "attention mechanism" --limit 10
+
+  # 从综述构建知识图谱
+  lit review-graph "deep learning" --output dl-graph --enrich
+
+  # 从综述URL构建知识图谱
+  lit review-graph "https://arxiv.org/abs/xxxx" --output my-graph
+
+  # 查询概念关联文献
+  lit query concept "transformer" --graph dl-graph --limit 20
+
+  # 查询论文关联概念
+  lit query paper "https://arxiv.org/abs/1706.03762" --graph dl-graph
+
+  # 图谱管理
+  lit graph-list
+  lit graph-stats dl-graph
+  lit graph-viz dl-graph --format mermaid --output graph.md
+  lit graph-export dl-graph --output dl-graph.json
+
   # 使用 OpenAI 提供商
   AI_PROVIDER=openai lit search "transformer"
 
@@ -227,6 +291,8 @@ async function main() {
 
       case 'download':
         await handleDownload(cmdArgs);
+      case 'expand':
+        await handleExpand(cmdArgs);
         break;
 
       case 'learn':
@@ -263,6 +329,34 @@ async function main() {
 
       case 'path':
         await handlePath(cmdArgs);
+        break;
+
+      case 'review-search':
+        await handleReviewSearch(cmdArgs);
+        break;
+
+      case 'review-graph':
+        await handleReviewGraph(cmdArgs);
+        break;
+
+      case 'query':
+        await handleQuery(cmdArgs);
+        break;
+
+      case 'graph-stats':
+        handleGraphStats(cmdArgs);
+        break;
+
+      case 'graph-list':
+        handleGraphList();
+        break;
+
+      case 'graph-viz':
+        handleGraphViz(cmdArgs);
+        break;
+
+      case 'graph-export':
+        handleGraphExport(cmdArgs);
         break;
 
       default:
@@ -401,6 +495,115 @@ async function handleDownload(args: string[]) {
   console.log(`\n✅ Downloaded ${downloads.length}/${results.results.length} PDFs`);
   if (downloads.length > 0) {
     console.log(`   Saved to: ${outputDir || './downloads/pdfs'}`);
+  }
+}
+
+async function handleExpand(args: string[]) {
+  const query = args[0];
+
+  if (!query) {
+    console.error('Error: expand requires a query');
+    process.exit(1);
+  }
+
+  const interactive = args.includes('--interactive');
+  const outputIndex = args.indexOf('--output');
+  const outputFile = outputIndex > -1 ? args[outputIndex + 1] : null;
+
+  const expander = new QueryExpander();
+  await expander.initialize();
+
+  if (interactive) {
+    // 交互式模式
+    console.log('🔍 查询扩展 - 交互式模式\n');
+    console.log('我会通过几个问题来帮助你明确研究方向并生成搜索关键词。\n');
+
+    const conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }> = [];
+    let currentQuery = query;
+    let iteration = 0;
+    const maxIterations = 5;
+
+    while (iteration < maxIterations) {
+      console.log(`\n💬 第 ${iteration + 1} 轮对话\n`);
+
+      const result = await expander.interactiveExpand(currentQuery, conversationHistory);
+      const formattedOutput = expander.formatResult(result);
+      console.log(formattedOutput);
+
+      // 保存对话历史
+      conversationHistory.push({ role: 'user', content: currentQuery });
+      conversationHistory.push({ role: 'assistant', content: JSON.stringify(result) });
+
+      if (!result.needsMoreInfo || !result.followUpQuestions || result.followUpQuestions.length === 0) {
+        console.log('\n✅ 查询扩展完成！');
+
+        if (outputFile) {
+          const fs = await import('fs');
+          fs.writeFileSync(outputFile, formattedOutput);
+          console.log(`\n📄 结果已保存到 ${outputFile}`);
+        }
+        break;
+      }
+
+      // 等待用户输入
+      console.log('\n请回答上述问题（输入 "skip" 跳过，"done" 完成）：');
+      const readline = await import('readline');
+      const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout
+      });
+
+      const userAnswer = await new Promise<string>((resolve) => {
+        rl.question('> ', (answer) => {
+          rl.close();
+          resolve(answer);
+        });
+      });
+
+      if (userAnswer.toLowerCase() === 'done') {
+        console.log('\n✅ 查询扩展完成！');
+        if (outputFile) {
+          const fs = await import('fs');
+          fs.writeFileSync(outputFile, formattedOutput);
+          console.log(`\n📄 结果已保存到 ${outputFile}`);
+        }
+        break;
+      }
+
+      if (userAnswer.toLowerCase() === 'skip') {
+        iteration++;
+        continue;
+      }
+
+      currentQuery = userAnswer;
+      iteration++;
+    }
+
+    if (iteration >= maxIterations) {
+      console.log('\n⚠️ 已达到最大对话轮数，查询扩展结束。');
+    }
+
+  } else {
+    // 单次模式
+    console.log(`🔍 扩展查询: "${query}"\n`);
+
+    const result = await expander.expandQuery(query);
+    const formattedOutput = expander.formatResult(result);
+    console.log(formattedOutput);
+
+    if (outputFile) {
+      const fs = await import('fs');
+      fs.writeFileSync(outputFile, formattedOutput);
+      console.log(`\n📄 结果已保存到 ${outputFile}`);
+    }
+
+    // 如果生成了关键词，询问是否直接搜索
+    if (result.keywords.length > 0 && !result.needsMoreInfo) {
+      console.log('\n💡 提示：你可以使用这些关键词进行搜索：');
+      result.keywords.slice(0, 3).forEach((kw, i) => {
+        console.log(`   lit search "${kw.term}"`);
+      });
+    }
   }
 }
 
@@ -972,6 +1175,304 @@ ${path.map((concept, i) => i < path.length - 1 ? `  ${concept.replace(/\s+/g, '_
     console.log('\n🗺️ Learning Path:\n');
     console.log(path.map((concept, i) => `  ${i + 1}. ${concept}`).join('\n'));
     console.log('\n路径: ' + path.join(' → '));
+  }
+}
+
+// ============================================
+// 综述与知识图谱相关命令处理函数
+// ============================================
+
+async function handleReviewSearch(args: string[]) {
+  const query = args[0];
+
+  if (!query) {
+    console.error('Error: review-search requires a query');
+    process.exit(1);
+  }
+
+  const limitIndex = args.indexOf('--limit');
+  const limit = limitIndex > -1 ? parseInt(args[limitIndex + 1]) : 10;
+
+  const workflow = new ReviewToGraphWorkflow();
+  await workflow.initialize();
+
+  const reviews = await workflow.searchReviews(query, limit);
+
+  if (reviews.length === 0) {
+    console.log('\n⚠️ 未找到综述论文。尝试使用不同的关键词。');
+  }
+}
+
+async function handleReviewGraph(args: string[]) {
+  const queryOrUrl = args[0];
+
+  if (!queryOrUrl) {
+    console.error('Error: review-graph requires a query or URL');
+    process.exit(1);
+  }
+
+  const outputIndex = args.indexOf('--output');
+  const graphName = outputIndex > -1 ? args[outputIndex + 1] : undefined;
+
+  const enrich = args.includes('--enrich');
+  const autoConfirm = args.includes('--auto-confirm');
+
+  const minConfIndex = args.indexOf('--min-confidence');
+  const minConfidence = minConfIndex > -1 ? parseFloat(args[minConfIndex + 1]) : 0.5;
+
+  const workflow = new ReviewToGraphWorkflow();
+
+  const isUrl = queryOrUrl.startsWith('http://') || queryOrUrl.startsWith('https://');
+
+  if (isUrl) {
+    // 从URL直接构建
+    await workflow.runFromUrl(queryOrUrl, {
+      graphName: graphName || 'review-graph',
+      enrichWithPapers: enrich
+    });
+  } else {
+    // 搜索综述并构建
+    await workflow.run(queryOrUrl, {
+      graphName,
+      enrichWithPapers: enrich,
+      autoConfirm,
+      minReviewConfidence: minConfidence
+    });
+  }
+}
+
+async function handleQuery(args: string[]) {
+  const subCommand = args[0];
+
+  if (subCommand === 'concept') {
+    const conceptName = args[1];
+    if (!conceptName) {
+      console.error('Error: query concept requires a concept name');
+      process.exit(1);
+    }
+
+    const graphIndex = args.indexOf('--graph');
+    const graphName = graphIndex > -1 ? args[graphIndex + 1] : null;
+
+    if (!graphName) {
+      console.error('Error: --graph <name> is required');
+      process.exit(1);
+    }
+
+    const limitIndex = args.indexOf('--limit');
+    const limit = limitIndex > -1 ? parseInt(args[limitIndex + 1]) : 10;
+
+    const typeIndex = args.indexOf('--type');
+    const paperType = typeIndex > -1 ? args[typeIndex + 1] : 'all';
+
+    const storage = new GraphStorage();
+    try {
+      const graph = storage.loadGraph(graphName);
+      if (!graph) {
+        console.error(`Error: Graph "${graphName}" not found`);
+        process.exit(1);
+      }
+
+      // 查找概念节点
+      const node = graph.nodes.find(n =>
+        n.label.toLowerCase().includes(conceptName.toLowerCase())
+      );
+
+      if (!node) {
+        console.error(`Error: Concept "${conceptName}" not found in graph`);
+        // 列出可用概念
+        console.log('\n可用概念:');
+        graph.nodes.forEach(n => console.log(`  - ${n.label}`));
+        process.exit(1);
+      }
+
+      const indexer = new KnowledgeGraphIndexer();
+      const results = indexer.findPapersByConcept(graph, node.id, {
+        limit,
+        paperType: paperType as 'review' | 'research' | 'all',
+        sortBy: 'relevance'
+      });
+
+      console.log(indexer.formatPaperResults(node.label, results));
+    } finally {
+      storage.close();
+    }
+  } else if (subCommand === 'paper') {
+    const paperUrl = args[1];
+    if (!paperUrl) {
+      console.error('Error: query paper requires a paper URL');
+      process.exit(1);
+    }
+
+    const graphIndex = args.indexOf('--graph');
+    const graphName = graphIndex > -1 ? args[graphIndex + 1] : null;
+
+    if (!graphName) {
+      console.error('Error: --graph <name> is required');
+      process.exit(1);
+    }
+
+    const storage = new GraphStorage();
+    try {
+      const concepts = storage.queryConceptsByPaper(graphName, paperUrl);
+
+      if (concepts.length === 0) {
+        console.log(`\n⚠️ 未在图谱 "${graphName}" 中找到该论文的关联概念`);
+      } else {
+        console.log(`\n🔍 论文关联概念 (${concepts.length} 个):\n`);
+        concepts.forEach((c, i) => {
+          console.log(`  ${i + 1}. ${c.label} (${c.category}) - 相关度: ${(c.relevance * 100).toFixed(0)}%`);
+        });
+      }
+    } finally {
+      storage.close();
+    }
+  } else {
+    console.error('Error: query requires "concept" or "paper" subcommand');
+    process.exit(1);
+  }
+}
+
+function handleGraphStats(args: string[]) {
+  const graphName = args[0];
+
+  if (!graphName) {
+    console.error('Error: graph-stats requires a graph name');
+    process.exit(1);
+  }
+
+  const storage = new GraphStorage();
+  try {
+    const graph = storage.loadGraph(graphName);
+    if (!graph) {
+      console.error(`Error: Graph "${graphName}" not found`);
+      process.exit(1);
+    }
+
+    const indexer = new KnowledgeGraphIndexer();
+    const stats = indexer.getIndexStats(graph);
+
+    console.log(`\n📊 图谱 "${graphName}" 统计信息:`);
+    console.log(indexer.formatStats(stats));
+
+    if (graph.graphMetadata) {
+      console.log(`\n📅 创建时间: ${graph.graphMetadata.createdAt}`);
+      console.log(`📅 更新时间: ${graph.graphMetadata.updatedAt}`);
+      if (graph.graphMetadata.sourceReviews.length > 0) {
+        console.log(`\n📚 来源综述:`);
+        graph.graphMetadata.sourceReviews.forEach((r, i) => {
+          console.log(`  ${i + 1}. ${r}`);
+        });
+      }
+    }
+
+    // 显示概念列表
+    console.log(`\n🔹 概念列表 (${graph.nodes.length}):`);
+    const sorted = [...graph.nodes].sort((a, b) => b.importance - a.importance);
+    sorted.forEach(n => {
+      const stars = '★'.repeat(n.importance) + '☆'.repeat(5 - n.importance);
+      const paperCount = n.literatureReferences?.length || 0;
+      console.log(`  ${stars} ${n.label} (${n.category}) - ${paperCount} 篇论文`);
+    });
+  } finally {
+    storage.close();
+  }
+}
+
+function handleGraphList() {
+  const storage = new GraphStorage();
+  try {
+    const graphs = storage.listGraphs();
+
+    if (graphs.length === 0) {
+      console.log('\n📭 没有已保存的图谱');
+      console.log('使用 "lit review-graph <query>" 创建一个新图谱');
+      return;
+    }
+
+    console.log(`\n📋 已保存的知识图谱 (${graphs.length}):\n`);
+    graphs.forEach((g, i) => {
+      console.log(`  ${i + 1}. ${g.name}`);
+      console.log(`     概念: ${g.totalConcepts} | 文献: ${g.totalPapers} | 关系: ${g.totalRelations}`);
+      console.log(`     更新: ${g.updatedAt}`);
+      console.log('');
+    });
+  } finally {
+    storage.close();
+  }
+}
+
+function handleGraphViz(args: string[]) {
+  const graphName = args[0];
+
+  if (!graphName) {
+    console.error('Error: graph-viz requires a graph name');
+    process.exit(1);
+  }
+
+  const formatIndex = args.indexOf('--format');
+  const format = formatIndex > -1 ? args[formatIndex + 1] : 'mermaid';
+
+  const outputIndex = args.indexOf('--output');
+  const outputFile = outputIndex > -1 ? args[outputIndex + 1] : null;
+
+  const storage = new GraphStorage();
+  try {
+    const graph = storage.loadGraph(graphName);
+    if (!graph) {
+      console.error(`Error: Graph "${graphName}" not found`);
+      process.exit(1);
+    }
+
+    const builder = new KnowledgeGraphBuilder();
+    let output: string;
+
+    if (format === 'json') {
+      output = builder.toJSON(graph);
+    } else {
+      output = builder.toMermaid(graph);
+    }
+
+    if (outputFile) {
+      const fs = require('fs');
+      fs.writeFileSync(outputFile, output);
+      console.log(`\n✅ 图谱可视化已保存到 ${outputFile}`);
+    } else {
+      console.log(`\n📈 知识图谱 "${graphName}":\n`);
+      console.log(output);
+    }
+  } finally {
+    storage.close();
+  }
+}
+
+function handleGraphExport(args: string[]) {
+  const graphName = args[0];
+
+  if (!graphName) {
+    console.error('Error: graph-export requires a graph name');
+    process.exit(1);
+  }
+
+  const outputIndex = args.indexOf('--output');
+  const outputFile = outputIndex > -1 ? args[outputIndex + 1] : `${graphName}.json`;
+
+  const storage = new GraphStorage();
+  try {
+    const graph = storage.loadGraph(graphName);
+    if (!graph) {
+      console.error(`Error: Graph "${graphName}" not found`);
+      process.exit(1);
+    }
+
+    const builder = new KnowledgeGraphBuilder();
+    const json = builder.toJSON(graph);
+
+    const fs = require('fs');
+    fs.writeFileSync(outputFile, json);
+    console.log(`\n✅ 图谱已导出到 ${outputFile}`);
+  } finally {
+    storage.close();
   }
 }
 
