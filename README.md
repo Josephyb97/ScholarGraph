@@ -2,6 +2,8 @@
 
 <div align="center">
 
+**中文 | [English](README_EN.md)**
+
 **高效、系统化的学术文献分析与知识管理工具**
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
