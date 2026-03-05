@@ -337,6 +337,66 @@ const order = builder.getTopologicalOrder(graph);
 - Mermaid visualization
 - Learning suggestions
 
+#### 16. Paper Visualization
+
+Convert paper analysis results into interactive HTML slide presentations with editing and PPT export support.
+
+```bash
+# Basic usage — analyze paper and generate presentation
+lit paper-viz "https://arxiv.org/abs/1706.03762" --output attention.html
+
+# Specify analysis depth and theme
+lit paper-viz "https://arxiv.org/abs/2005.14165" --mode deep --theme academic-light
+
+# Also export PPT
+lit paper-viz "https://arxiv.org/abs/1706.03762" --output paper.html --ppt
+
+# Manually provide figures directory
+lit paper-viz "https://example.com/paper" --figures ./my-figures
+```
+
+**Slide content**:
+- Title page (title, authors, year, keywords, paper link)
+- Abstract & summary
+- Key points (tagged by importance: critical / important / supporting)
+- Methodology (approach, novelty, assumptions)
+- Experimental results (datasets, metrics, figures)
+- Contributions (tagged by significance)
+- Limitations & future work
+- References
+
+**Interactive features**:
+- Arrow keys / Space / Scroll / Touch swipe: Navigation
+- E key: Edit mode (contenteditable + localStorage auto-save)
+- Academic dark/light dual themes, responsive typography
+- PDF figure extraction (pymupdf)
+- PPT export (python-pptx)
+
+#### 17. Interactive Knowledge Graph
+
+Convert knowledge graph data into interactive D3.js force-directed graph HTML with node exploration and paper preview.
+
+```bash
+# Generate interactive HTML from existing graph
+lit graph-interactive dl-graph --output dl-interactive.html
+
+# Without paper data (lighter weight)
+lit graph-interactive my-graph --no-paper-viz
+```
+
+**Visualization features**:
+- Node size reflects associated paper count (`15 + sqrt(paperCount) * 8`, capped at 60px)
+- Edge thickness reflects concept tightness (`relationWeight + sharedPaperCount * 0.5`)
+- Category colors: foundation=#4FC3F7, core=#FFB74D, advanced=#CE93D8, application=#81C784
+
+**Interactive operations**:
+- Scroll to zoom + drag to pan
+- Drag nodes to reposition
+- Click node → side panel shows details and related paper list
+- Hover tooltip shows name and paper count
+- Search bar highlights matching nodes with auto-focus
+- Click "View Presentation" → opens paper preview in new tab
+
 ---
 
 ## Installation
@@ -345,6 +405,7 @@ const order = builder.getTopologicalOrder(graph);
 
 - [Bun](https://bun.sh/) 1.3 or higher
 - Node.js 18+ (optional, if not using Bun)
+- Python 3.8+ (optional, for PDF figure extraction and PPT export)
 
 ### Installation Steps
 
@@ -433,6 +494,12 @@ lit critique "https://arxiv.org/abs/1706.03762" --focus "novelty,scalability"
 
 # 13. Find learning path
 lit path "Machine Learning" "Deep Learning" --concepts "Neural Networks"
+
+# 14. Paper visualization
+lit paper-viz "https://arxiv.org/abs/1706.03762" --output attention.html
+
+# 15. Interactive knowledge graph
+lit graph-interactive dl-graph --output dl-interactive.html
 ```
 
 ---
@@ -519,6 +586,23 @@ lit compare concepts "Transformer" "LSTM"
 lit graph CNN RNN LSTM Transformer --format mermaid
 ```
 
+### Scenario 6: Paper Visualization & Knowledge Graph Exploration
+
+```bash
+# 1. Analyze paper and generate interactive presentation
+lit paper-viz "https://arxiv.org/abs/1706.03762" --output attention.html --ppt
+
+# 2. Build knowledge graph from reviews
+lit review-graph "attention mechanism" --output attention-graph --enrich
+
+# 3. Generate interactive graph (with paper preview)
+lit graph-interactive attention-graph --output attention-interactive.html
+
+# 4. Open in browser:
+#    - attention.html: paper slide presentation, keyboard/scroll navigation
+#    - attention-interactive.html: D3.js force-directed graph, click nodes to view papers
+```
+
 ---
 
 ## Project Structure
@@ -588,8 +672,29 @@ literature-skills/
 │       ├── storage.ts          # SQLite persistence
 │       └── enricher.ts         # Key paper association
 │
+├── paper-viz/                  # Paper visualization
+│   ├── skill.md
+│   └── scripts/
+│       ├── types.ts            # Presentation data interfaces
+│       ├── slide-builder.ts    # PaperAnalysis → slides
+│       ├── html-generator.ts   # Self-contained HTML generation
+│       ├── pdf-figure-extractor.ts  # PDF figure extraction (pymupdf)
+│       └── ppt-exporter.ts     # PPT export (python-pptx)
+│
+├── graph-viz/                  # Interactive knowledge graph
+│   ├── skill.md
+│   └── scripts/
+│       ├── types.ts            # D3 graph data interfaces
+│       ├── graph-data-adapter.ts # KnowledgeGraph → D3 data
+│       ├── html-generator.ts   # Interactive HTML generation (D3.js)
+│       └── paper-viz-bridge.ts # Graph → paper presentation bridge
+│
 ├── workflows/                  # Workflows
 │   └── review-to-graph.ts      # Review-to-graph end-to-end pipeline
+│
+├── tests/                      # Unit tests
+│   ├── validators.test.ts      # Parameter validation tests
+│   └── paper-viz.test.ts       # Visualization module tests (91 cases)
 │
 └── data/                       # Data directory (auto-created)
     └── knowledge-graphs.db     # SQLite database
@@ -693,6 +798,11 @@ All tools support Markdown output for easy reading and sharing:
 - **Comparison analysis**: Similarities, differences, use cases
 - **Critical analysis**: Strengths, weaknesses, research gaps, improvement suggestions
 
+### Interactive HTML
+
+- **Paper presentation**: Full-screen slide HTML, keyboard/scroll/touch navigation, edit mode
+- **Knowledge graph**: D3.js force-directed graph HTML, zoom/pan, node dragging, search, paper panel
+
 ### JSON Data
 
 Structured JSON output for programmatic processing:
@@ -727,7 +837,22 @@ interface ConceptCard {
 
 The project has been comprehensively tested with all features working correctly.
 
-### Running Tests
+### Run Unit Tests
+
+```bash
+# Run all tests (91 test cases)
+bun test tests/validators.test.ts tests/paper-viz.test.ts
+```
+
+**Test coverage**:
+- SlideBuilder: slide generation, pagination, themes, edge cases
+- HTML Generator: HTML structure, CSS variables, XSS prevention
+- GraphDataAdapter: node radius calculation, edge width calculation, category colors
+- PaperVizBridge: paper data bridging, filtering, truncation
+- Graph HTML: D3 CDN, data embedding, interactive components
+- Validators: parameter validation (paper-viz / graph-interactive)
+
+### Functional Tests
 
 ```bash
 # Test basic features
@@ -735,14 +860,13 @@ bun run cli.ts search "transformer" --limit 5
 bun run cli.ts learn "BERT" --depth intermediate
 bun run cli.ts detect --domain "NLP" --known "transformer"
 
+# Test visualization features
+bun run cli.ts paper-viz "https://arxiv.org/abs/1706.03762" --output test.html
+bun run cli.ts graph-interactive dl-graph --output test-graph.html
+
 # Test advanced features
 bun run cli.ts compare concepts CNN RNN
-bun run cli.ts compare papers "url1" "url2"
 bun run cli.ts critique "paper-url" --focus "novelty"
-bun run cli.ts path "ML" "DL" --concepts "NN"
-
-# Test programmatic API
-bun run test-advanced-features.ts
 ```
 
 ### Test Results
@@ -776,6 +900,8 @@ Commands:
   graph-list                  List all graphs
   graph-viz <name>            Graph visualization
   graph-export <name>         Export graph data
+  paper-viz <url>             Generate paper visualization HTML
+  graph-interactive <name>    Generate interactive knowledge graph HTML
   config <action>             Configuration management
 
 Options:
@@ -784,11 +910,15 @@ Options:
   --limit <n>                 Result count limit
   --depth <d>                 Learning depth (beginner|intermediate|advanced)
   --mode <m>                  Analysis mode (quick|standard|deep)
+  --theme <t>                 Presentation theme (academic-dark|academic-light)
   --format <f>                Output format (mermaid|json)
   --focus <areas>             Focus areas (comma-separated)
   --graph <name>              Specify graph name (query commands)
   --enrich                    Search and associate key papers (review-graph)
   --auto-confirm              Auto-confirm reviews (review-graph)
+  --ppt                       Also export PPT (paper-viz)
+  --figures <dir>             Specify figures directory (paper-viz)
+  --no-paper-viz              Exclude paper data (graph-interactive)
 ```
 
 See [ADVANCED_FEATURES.md](ADVANCED_FEATURES.md) for detailed usage instructions.
@@ -860,8 +990,19 @@ MIT License - See [LICENSE](LICENSE) file for details.
 
 - [arXiv](https://arxiv.org/) - Open access paper repository
 - [Semantic Scholar](https://www.semanticscholar.org/) - Academic search engine
+- [OpenAlex](https://openalex.org/) - Open academic metadata catalog
+- [PubMed](https://pubmed.ncbi.nlm.nih.gov/) - Biomedical literature database
+- [CrossRef](https://www.crossref.org/) - DOI registration and metadata
+- [DBLP](https://dblp.org/) - Computer science bibliography
+- [CORE](https://core.ac.uk/) - Open access full-text aggregation
+- [Unpaywall](https://unpaywall.org/) - Open access PDF finder
+- [D3.js](https://d3js.org/) - Data-driven visualization library
 - [Bun](https://bun.sh/) - Fast JavaScript runtime
 - All AI providers - Providing powerful language model support
+
+**Design Inspirations**:
+- [frontend-slides](https://github.com/zarazhangrui/frontend-slides) - Design reference for paper slide presentations
+- [Argo Scholar](https://github.com/poloclub/argo-scholar) - Design reference for interactive knowledge graphs
 
 ---
 

@@ -366,6 +366,66 @@ const order = builder.getTopologicalOrder(graph);
 - 📊 Mermaid 可视化
 - 📚 学习建议
 
+#### 16. 🎬 论文可视化演示 (Paper Visualization)
+
+将论文分析结果转换为交互式 HTML 幻灯片演示，支持编辑和 PPT 导出。
+
+```bash
+# 基本用法 — 分析论文并生成演示
+lit paper-viz "https://arxiv.org/abs/1706.03762" --output attention.html
+
+# 指定分析深度和主题
+lit paper-viz "https://arxiv.org/abs/2005.14165" --mode deep --theme academic-light
+
+# 同时导出 PPT
+lit paper-viz "https://arxiv.org/abs/1706.03762" --output paper.html --ppt
+
+# 手动提供图表目录
+lit paper-viz "https://example.com/paper" --figures ./my-figures
+```
+
+**幻灯片内容**：
+- 📌 标题页（标题、作者、年份、关键词、论文链接）
+- 📝 摘要与总结
+- 🎯 关键要点（按重要度标注：critical / important / supporting）
+- 🔬 方法论（研究方法、创新点、假设）
+- 📊 实验结果（数据集、指标、图表）
+- 💡 贡献（按显著度标注）
+- ⚠️ 局限与未来工作
+- 📚 参考文献
+
+**交互功能**：
+- ← → / 空格 / 滚轮 / 触摸滑动：导航
+- E 键：编辑模式（内容可编辑 + localStorage 自动保存）
+- 学术深色/浅色双主题，响应式排版
+- PDF 图表自动提取（pymupdf）
+- PPT 导出（python-pptx）
+
+#### 17. 🕸️ 交互式知识图谱 (Interactive Knowledge Graph)
+
+将知识图谱数据转换为交互式 D3.js 力导向图 HTML，支持节点探索和论文预览。
+
+```bash
+# 从已有图谱生成交互式 HTML
+lit graph-interactive dl-graph --output dl-interactive.html
+
+# 不嵌入论文数据（更轻量）
+lit graph-interactive my-graph --no-paper-viz
+```
+
+**可视化特性**：
+- 🔵 节点大小反映关联论文数（`15 + sqrt(paperCount) * 8`，上限 60px）
+- 🔗 边粗细反映概念紧密度（`relationWeight + sharedPaperCount * 0.5`）
+- 🎨 类别颜色：基础=#4FC3F7, 核心=#FFB74D, 进阶=#CE93D8, 应用=#81C784
+
+**交互操作**：
+- 滚轮缩放 + 拖拽平移
+- 拖拽节点移动位置
+- 点击节点 → 右侧面板显示详情和关联论文列表
+- 悬停 tooltip 显示名称和论文数
+- 搜索框高亮匹配节点并自动定位
+- 点击"查看演示" → 新标签页打开简版论文演示
+
 ---
 
 ## 📦 安装
@@ -374,6 +434,7 @@ const order = builder.getTopologicalOrder(graph);
 
 - [Bun](https://bun.sh/) 1.3 或更高版本
 - Node.js 18+ (可选，如果不使用 Bun)
+- Python 3.8+ (可选，用于 PDF 图表提取和 PPT 导出)
 
 ### 安装步骤
 
@@ -458,29 +519,13 @@ lit compare papers "https://arxiv.org/abs/1706.03762" "https://arxiv.org/abs/181
 lit critique "https://arxiv.org/abs/1706.03762" --focus "novelty,scalability"
 
 # 12. 查找学习路径
-# 6. 搜索综述论文
-lit review-search "attention mechanism" --limit 10
-
-# 7. 从综述构建知识图谱（含关键论文关联）
-lit review-graph "deep learning" --output dl-graph --enrich
-
-# 8. 查询概念关联文献
-lit query concept "transformer" --graph dl-graph --limit 20
-
-# 9. 查询论文关联概念
-lit query paper "https://arxiv.org/abs/1706.03762" --graph dl-graph
-
-# 10. 对比概念
-lit compare concepts CNN RNN
-
-# 11. 对比论文
-lit compare papers "https://arxiv.org/abs/1706.03762" "https://arxiv.org/abs/1810.04805"
-
-# 12. 批判性分析
-lit critique "https://arxiv.org/abs/1706.03762" --focus "novelty,scalability"
-
-# 13. 查找学习路径
 lit path "Machine Learning" "Deep Learning" --concepts "Neural Networks"
+
+# 13. 论文可视化演示
+lit paper-viz "https://arxiv.org/abs/1706.03762" --output attention.html
+
+# 14. 交互式知识图谱
+lit graph-interactive dl-graph --output dl-interactive.html
 ```
 
 ---
@@ -565,6 +610,23 @@ lit compare concepts "Transformer" "LSTM"
 
 # 3. 构建对比图谱
 lit graph CNN RNN LSTM Transformer --format mermaid
+```
+
+### 场景 6: 论文可视化与知识图谱探索
+
+```bash
+# 1. 分析论文并生成交互式演示
+lit paper-viz "https://arxiv.org/abs/1706.03762" --output attention.html --ppt
+
+# 2. 从综述构建知识图谱
+lit review-graph "attention mechanism" --output attention-graph --enrich
+
+# 3. 生成交互式图谱（含论文预览）
+lit graph-interactive attention-graph --output attention-interactive.html
+
+# 4. 在浏览器中打开：
+#    - attention.html: 论文幻灯片演示，键盘/滚轮导航
+#    - attention-interactive.html: D3.js 力导向图，点击节点查看论文
 ```
 
 ---
@@ -655,8 +717,29 @@ literature-skills/
 │       ├── storage.ts          # SQLite持久化
 │       └── enricher.ts         # 关键论文关联
 │
+├── paper-viz/                  # 论文可视化演示
+│   ├── skill.md
+│   └── scripts/
+│       ├── types.ts            # 演示文稿数据接口
+│       ├── slide-builder.ts    # PaperAnalysis → 幻灯片
+│       ├── html-generator.ts   # 生成自包含 HTML
+│       ├── pdf-figure-extractor.ts  # PDF 图表提取 (pymupdf)
+│       └── ppt-exporter.ts     # PPT 导出 (python-pptx)
+│
+├── graph-viz/                  # 交互式知识图谱
+│   ├── skill.md
+│   └── scripts/
+│       ├── types.ts            # D3 图谱数据接口
+│       ├── graph-data-adapter.ts # KnowledgeGraph → D3 数据
+│       ├── html-generator.ts   # 生成交互式 HTML (D3.js)
+│       └── paper-viz-bridge.ts # 图谱→论文演示桥接
+│
 ├── workflows/                  # 工作流
 │   └── review-to-graph.ts      # 综述到图谱端到端流程
+│
+├── tests/                      # 单元测试
+│   ├── validators.test.ts      # 参数验证测试
+│   └── paper-viz.test.ts       # 可视化模块测试 (91 cases)
 │
 └── data/                       # 数据目录 (自动创建)
     └── knowledge-graphs.db     # SQLite 数据库
@@ -793,6 +876,11 @@ export SERPAPI_KEY="your-key"            # Google Scholar (via SerpAPI)
 - **对比分析**: 相似点、差异点、使用场景
 - **批判性分析**: 优点、缺点、研究空白、改进建议
 
+### 交互式 HTML
+
+- **论文演示**: 全屏幻灯片 HTML，键盘/滚轮/触摸导航，编辑模式
+- **知识图谱**: D3.js 力导向图 HTML，缩放平移、节点拖拽、搜索、论文面板
+
 ### JSON 数据
 
 结构化 JSON 输出，便于程序化处理：
@@ -834,7 +922,22 @@ interface ConceptCard {
 
 项目已通过全面测试，所有功能正常工作。
 
-### 运行测试
+### 运行单元测试
+
+```bash
+# 运行所有测试（91 个用例）
+bun test tests/validators.test.ts tests/paper-viz.test.ts
+```
+
+**测试覆盖**：
+- SlideBuilder: 幻灯片生成、分页、主题、边界情况
+- HTML Generator: HTML 结构、CSS 变量、XSS 防御
+- GraphDataAdapter: 节点半径计算、边粗细计算、类别颜色
+- PaperVizBridge: 论文数据桥接、过滤、截断
+- Graph HTML: D3 CDN、数据嵌入、交互组件
+- Validators: 参数验证（paper-viz / graph-interactive）
+
+### 功能测试
 
 ```bash
 # 测试基础功能
@@ -842,14 +945,13 @@ bun run cli.ts search "transformer" --limit 5
 bun run cli.ts learn "BERT" --depth intermediate
 bun run cli.ts detect --domain "NLP" --known "transformer"
 
+# 测试可视化功能
+bun run cli.ts paper-viz "https://arxiv.org/abs/1706.03762" --output test.html
+bun run cli.ts graph-interactive dl-graph --output test-graph.html
+
 # 测试高级功能
 bun run cli.ts compare concepts CNN RNN
-bun run cli.ts compare papers "url1" "url2"
 bun run cli.ts critique "paper-url" --focus "novelty"
-bun run cli.ts path "ML" "DL" --concepts "NN"
-
-# 测试编程 API
-bun run test-advanced-features.ts
 ```
 
 ### 测试结果
@@ -884,6 +986,8 @@ lit <command> [options]
   graph-list                  列出所有图谱
   graph-viz <name>            图谱可视化
   graph-export <name>         导出图谱数据
+  paper-viz <url>             生成论文可视化演示 HTML
+  graph-interactive <name>    生成交互式知识图谱 HTML
   config <action>             配置管理
 
 选项:
@@ -895,11 +999,15 @@ lit <command> [options]
   --download                  同时下载 PDF (用于 search 命令)
   --depth <d>                 学习深度 (beginner|intermediate|advanced)
   --mode <m>                  分析模式 (quick|standard|deep)
+  --theme <t>                 演示主题 (academic-dark|academic-light)
   --format <f>                输出格式 (mermaid|json)
   --focus <areas>             关注领域 (逗号分隔)
   --graph <name>              指定图谱名称 (查询命令)
   --enrich                    搜索并关联关键论文 (review-graph)
   --auto-confirm              自动确认综述 (review-graph)
+  --ppt                       同时导出 PPT (paper-viz)
+  --figures <dir>             手动指定图表目录 (paper-viz)
+  --no-paper-viz              不嵌入论文数据 (graph-interactive)
 ```
 
 详细使用说明请参考 [ADVANCED_FEATURES.md](ADVANCED_FEATURES.md)。
@@ -985,8 +1093,13 @@ MIT License - 详见 [LICENSE](LICENSE) 文件。
 - [DBLP](https://dblp.org/) - 计算机科学文献库
 - [CORE](https://core.ac.uk/) - 开放获取全文聚合
 - [Unpaywall](https://unpaywall.org/) - 开放获取 PDF 查找
+- [D3.js](https://d3js.org/) - 数据驱动的可视化库
 - [Bun](https://bun.sh/) - 快速的 JavaScript 运行时
 - 所有 AI 提供商 - 提供强大的语言模型支持
+
+**设计灵感**：
+- [frontend-slides](https://github.com/zarazhangrui/frontend-slides) - 论文幻灯片演示的设计参考
+- [Argo Scholar](https://github.com/poloclub/argo-scholar) - 交互式知识图谱的设计参考
 
 ---
 
