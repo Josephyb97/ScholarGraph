@@ -8,6 +8,7 @@ import { join, resolve } from 'path';
 import type { SearchResult, PdfDownloadOptions, PdfDownloadResult, PdfMetadataIndex } from './types';
 import type { UnpaywallAdapter } from './adapters/unpaywall-adapter';
 import type { SearchSourceRegistry } from './adapters/registry';
+import { PmcAdapter } from './adapters/pmc-adapter';
 import { getErrorMessage } from '../../shared/errors';
 
 const DEFAULT_OPTIONS: Required<PdfDownloadOptions> = {
@@ -25,10 +26,12 @@ export class PdfDownloader {
   private options: Required<PdfDownloadOptions>;
   private registry?: SearchSourceRegistry;
   private unpaywallAdapter?: UnpaywallAdapter;
+  private pmcAdapter: PmcAdapter;
 
   constructor(options?: PdfDownloadOptions, registry?: SearchSourceRegistry) {
     this.options = { ...DEFAULT_OPTIONS, ...options };
     this.registry = registry;
+    this.pmcAdapter = new PmcAdapter();
 
     // Try to get Unpaywall adapter from registry
     if (registry) {
@@ -170,6 +173,12 @@ export class PdfDownloader {
         const url = await (coreAdapter as any).getPdfUrl(result);
         if (url) return url;
       }
+    }
+
+    // Strategy 5: PubMed Central (PMC) - biomedical open access
+    if (result.pmcId || result.pmid || result.doi) {
+      const pmcUrl = await this.pmcAdapter.getPdfUrl(result);
+      if (pmcUrl) return pmcUrl;
     }
 
     return undefined;

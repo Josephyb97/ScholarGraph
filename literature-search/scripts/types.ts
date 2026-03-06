@@ -36,6 +36,8 @@ export interface SearchResult {
   concepts?: string[];
   meshTerms?: string[];
   journal?: string;
+  pmid?: string;        // PubMed ID
+  pmcId?: string;       // PubMed Central ID
 }
 
 export interface ArxivPaper {

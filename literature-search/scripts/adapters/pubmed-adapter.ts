@@ -69,6 +69,8 @@ export class PubMedAdapter extends AbstractSearchAdapter {
         doi: article.doi,
         journal: article.journal,
         meshTerms: article.meshTerms,
+        pmid: article.pmid,
+        pmcId: article.pmcId,
         pdfUrl: article.doi ? `https://doi.org/${article.doi}` : undefined
       }));
     } catch (error) {

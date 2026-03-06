@@ -374,6 +374,7 @@ export function parsePubMedXml(xml: string): Array<{
   publishDate: string;
   journal?: string;
   doi?: string;
+  pmcId?: string;
   meshTerms?: string[];
 }> {
   const results: Array<{
@@ -384,6 +385,7 @@ export function parsePubMedXml(xml: string): Array<{
     publishDate: string;
     journal?: string;
     doi?: string;
+    pmcId?: string;
     meshTerms?: string[];
   }> = [];
 
@@ -430,6 +432,10 @@ export function parsePubMedXml(xml: string): Array<{
         const doiMatch = article.match(/<ArticleId IdType="doi">([^<]+)<\/ArticleId>/);
         const doi = doiMatch ? doiMatch[1] : undefined;
 
+        // Extract PMC ID
+        const pmcMatch = article.match(/<ArticleId IdType="pmc">([^<]+)<\/ArticleId>/);
+        const pmcId = pmcMatch ? pmcMatch[1] : undefined;
+
         // Extract MeSH terms
         const meshTerms: string[] = [];
         const meshRegex = /<DescriptorName[^>]*>([^<]+)<\/DescriptorName>/g;
@@ -446,6 +452,7 @@ export function parsePubMedXml(xml: string): Array<{
           publishDate,
           journal: journal || undefined,
           doi,
+          pmcId,
           meshTerms: meshTerms.length > 0 ? meshTerms : undefined
         });
       } catch {
